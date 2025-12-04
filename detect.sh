@@ -46,28 +46,27 @@ detect_profile() {
 }
 
 mapfile -t MONITOR_DATA < <(detect_monitors)
+
+# Sort monitors by score (best to worst)
+mapfile -t MONITOR_DATA < <(
+    for entry in "${MONITOR_DATA[@]}"; do
+        IFS='|' read -r name w h r <<<"$entry"
+        score=$(awk "BEGIN { printf \"%.0f\", $w * $h * $r }")
+        echo "$score|$entry"
+    done | sort -t'|' -k1 -rn | cut -d'|' -f2-
+)
+
 export MONITOR_DATA
 
-# Find out best monitor, assume it is primary
-BEST_SCORE=0
-export PRIMARY_MONITOR="${MONITOR_DATA[0]}"
+# Build MONITORS array from sorted data
 MONITORS=()
-
 for entry in "${MONITOR_DATA[@]}"; do
     IFS='|' read -r name w h r <<<"$entry"
     MONITORS+=("$name")
-
-    score=$(awk "BEGIN { printf \"%.0f\", $w * $h * $r }")
-
-    if ((score > BEST_SCORE)); then
-        BEST_SCORE=$score
-        PRIMARY_MONITOR="$name"
-    fi
 done
 
 export MONITOR_COUNT=${#MONITORS[@]}
 export MONITORS
-export PRIMARY_MONITOR
 
 export HAS_BATTERY
 HAS_BATTERY=$(detect_battery && echo "true" || echo "false")
@@ -84,5 +83,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "Battery: $HAS_BATTERY"
     echo "GPU: $GPU"
     echo "Monitors ($MONITOR_COUNT): ${MONITORS[*]}"
-    echo "Primary: $PRIMARY_MONITOR"
+    echo "Primary: ${MONITORS[0]}"
 fi

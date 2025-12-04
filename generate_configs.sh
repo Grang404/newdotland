@@ -1,42 +1,86 @@
 #!/bin/bash
 set -e
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR"
 
 # Source detection
-source "$DOTFILES_DIR/detect.sh"
+# source "$DOTFILES_DIR/detect.sh"
+source "$DOTFILES_DIR/test.sh"
 
 declare -A MONITOR_INFO
 
-# Reset array from detect.sh
-MONITORS=()
-
+# Build MONITOR_INFO from sorted MONITOR_DATA
+# MONITORS array is already sorted best to worst from detect.sh
 for entry in "${MONITOR_DATA[@]}"; do
     IFS='|' read -r name w h r <<<"$entry"
-    MONITORS+=("$name")
     MONITOR_INFO["$name"]="width=$w;height=$h;refresh=$r"
 done
 
 generate_monitor_config() {
     local config=""
     local x_offset=0
-    local ordered_monitors=("$PRIMARY_MONITOR")
-
-    for name in "${MONITORS[@]}"; do
-        [[ "$name" == "$PRIMARY_MONITOR" ]] && continue
-        ordered_monitors+=("$name")
-    done
-
     local width height refresh
-    for name in "${ordered_monitors[@]}"; do
-        eval "${MONITOR_INFO[$name]}"
 
+    # MONITORS is already sorted, just iterate through it
+    for name in "${MONITORS[@]}"; do
+        eval "${MONITOR_INFO[$name]}"
         config+="monitor = $name,${width}x${height}@${refresh},${x_offset}x0,1\n"
         x_offset=$((x_offset + width))
     done
-
-    echo -e "$config"
+    printf "%b" "$config"
 }
 
-generate_monitor_config
+generate_workspace_config() {
+    local config=""
+
+    echo "Workspace configuration"
+    echo "1) Groob"
+    echo "2) Sol"
+    read -rp $'Pick an option\n' choice
+
+    # Groob config
+    if [[ $choice -eq 1 ]]; then
+        if [[ $MONITOR_COUNT -gt 1 ]]; then
+            for i in {1..5}; do
+                config+="workspace = $i, monitor:${MONITORS[0]}, default:true"$'\n'
+            done
+            for i in {6..10}; do
+                config+="workspace = $i, monitor:${MONITORS[1]}, default:true"$'\n'
+            done
+        else
+            for i in {1..10}; do
+                config+="workspace = $i"$'\n'
+            done
+        fi
+    fi
+
+    # Sol config
+    if [[ $choice -eq 2 ]]; then
+        if [[ $MONITOR_COUNT -gt 1 ]]; then
+            for i in {1..2}; do
+                config+="workspace = $i, monitor:${MONITORS[0]}, default:true"$'\n'
+            done
+            for i in {3..4}; do
+                config+="workspace = $i, monitor:${MONITORS[1]}, default:true"$'\n'
+            done
+            for i in {5..6}; do
+                config+="workspace = $i, monitor:${MONITORS[2]}, default:true"$'\n'
+            done
+            for i in {7..9}; do
+                config+="workspace = $i"$'\n'
+            done
+        else
+            for i in {1..10}; do
+                config+="workspace = $i"$'\n'
+            done
+        fi
+    fi
+    printf "%s" "$config"
+}
+
+generate_workspace_config
+
+# MONITOR_CONFIG=$(generate_monitor_config)
+# export MONITOR_CONFIG
+
+# envsubst <"./monitors.conf.template" >"./monitors.conf"
